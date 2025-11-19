@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "release/**", "feature/**" ]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/**"
+
+# フォークからのPRでも安全に動く最小権限
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true  # go mod/ビルドを自動キャッシュ
+
+      - name: Show Go env
+        run: go env
+
+      - name: Verify modules
+        run: go mod download
+
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: Vulnerability scan (govulncheck)
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: "go.mod"
+          # レポートをPRに表示（optional）
+          # github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test (race + coverage)
+        run: |
+          mkdir -p .artifacts
+          go test -race -covermode=atomic -coverprofile=.artifacts/coverage.out ./...
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .artifacts/coverage.out
