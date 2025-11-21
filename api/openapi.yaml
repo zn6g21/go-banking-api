@@ -1,0 +1,159 @@
+openapi: 3.0.3
+info:
+  title: GO API Template
+  version: 1.0.0
+servers:
+  - url: http://0.0.0.0:8080/api/v1
+  - url: http://localhost:8080/api/v1
+  - url: http://127.0.0.1:8080/api/v1
+paths:
+  /accounts:
+    get:
+      tags:
+        - accounts
+      summary: Lookup account information
+      operationId: getAccountInformation
+      parameters:
+        - name: access_token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/AccountResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /transactions:
+    get:
+      tags:
+        - transactions
+      summary: Lookup transaction list
+      operationId: getTransactionList
+      parameters:
+        - name: access_token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/TransactionListResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+components:
+  schemas:
+    ApiVersion:
+      type: string
+      default: "v1"
+    BaseDate:
+      type: string
+      format: date
+    Account:
+      type: object
+      properties:
+        baseDate:
+          $ref: '#/components/schemas/BaseDate'
+        bankCode:
+          type: string
+          default: "9876"
+        branchCode:
+          type: string
+        accountTypeCode:
+          type: string
+        accountNumber:
+          type: string
+        balance:
+          type: string
+      required:
+        - baseDate
+        - bankCode
+        - branchCode
+        - accountTypeCode
+        - accountNumber
+        - balance
+    Transaction:
+      type: object
+      properties:
+        transactionNo:
+          type: string
+        transactionOrderNo:
+          type: string
+        transactionType:
+          type: string
+        amount:
+          type: string
+        balance:
+          type: string
+        description:
+          type: string
+      required:
+        - transactionNo
+        - transactionOrderNo
+        - transactionType
+        - amount
+        - balance
+        - description
+    TransactionList:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+      required:
+        - transactions
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: integer
+      required:
+        - message
+        - code
+  responses:
+    AccountResponse:
+      description: 'account response'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              apiVersion:
+                $ref: '#/components/schemas/ApiVersion'
+              data:
+                $ref: '#/components/schemas/Account'
+            required:
+              - apiVersion
+              - data
+    TransactionListResponse:
+      description: 'transaction list response'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              apiVersion:
+                $ref: '#/components/schemas/ApiVersion'
+              data:
+                $ref: '#/components/schemas/TransactionList'
+            required:
+              - apiVersion
+              - data
+    ErrorResponse:
+      description: 'error response'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                $ref: '#/components/schemas/Error'
+            required:
+              - error
