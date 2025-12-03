@@ -3,7 +3,7 @@ package entity
 import "time"
 
 type Customer struct {
-	CifNo      int
+	CifNo      int `gorm:"primaryKey"`
 	NameKana   string
 	NameKanji  string
 	BirthDate  time.Time
