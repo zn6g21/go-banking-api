@@ -1,8 +1,11 @@
 package gateway_test
 
 import (
+	"errors"
+	"regexp"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/suite"
 
 	"go-banking-api/adapter/gateway"
@@ -23,6 +26,16 @@ func TestCustomerRepositorySuite(t *testing.T) {
 func (suite *CustomerRepositoryTestSuite) SetupSuite() {
 	suite.DBSQLiteSuite.SetupSuite()
 	suite.repository = gateway.NewCustomerRepository(suite.DBSQLiteSuite.DB)
+}
+
+func (suite *CustomerRepositoryTestSuite) MockDB() sqlmock.Sqlmock {
+	mock, mockGormDB := tester.MockDB()
+	suite.repository = gateway.NewCustomerRepository(mockGormDB)
+	return mock
+}
+
+func (suite *CustomerRepositoryTestSuite) AfterTest(suiteName, testName string) {
+	suite.repository = gateway.NewCustomerRepository(suite.DB)
 }
 
 func (suite *CustomerRepositoryTestSuite) TestCustomer() {
@@ -48,4 +61,14 @@ func (suite *CustomerRepositoryTestSuite) TestCustomer() {
 	got, err := suite.repository.Get(paramCustomer.CifNo)
 	suite.Assert().Nil(err)
 	suite.Assert().Equal(paramCustomer, *got)
+}
+
+func (suite *AccountRepositoryTestSuite) TestCustomerGetFailure() {
+	mockDB := suite.MockDB()
+	mockDB.ExpectQuery(regexp.QuoteMeta("SELECT * FROM `accounts` WHERE `accounts`.`id` = ? LIMIT ?")).WithArgs(1, 1).WillReturnError(errors.New("get error"))
+
+	account, err := suite.repository.Get(1)
+	suite.Assert().Nil(account)
+	suite.Assert().NotNil(err)
+	suite.Assert().Equal("get error", err.Error())
 }
