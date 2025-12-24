@@ -15,11 +15,13 @@ func TestToken(t *testing.T) {
 		AccessToken: "test-token",
 		Scopes:      "read:account_and_transactions write:transfer",
 		ExpiresAt:   now,
+		CifNo:       1,
 	}
 
 	assert.Equal(t, "test-token", token.AccessToken)
 	assert.Equal(t, "read:account_and_transactions write:transfer", token.Scopes)
 	assert.Equal(t, now, token.ExpiresAt)
+	assert.Equal(t, 1, token.CifNo)
 }
 
 func TestIsExpired(t *testing.T) {
