@@ -63,12 +63,12 @@ func (suite *CustomerRepositoryTestSuite) TestCustomer() {
 	suite.Assert().Equal(paramCustomer, *got)
 }
 
-func (suite *AccountRepositoryTestSuite) TestCustomerGetFailure() {
+func (suite *CustomerRepositoryTestSuite) TestCustomerGetFailure() {
 	mockDB := suite.MockDB()
-	mockDB.ExpectQuery(regexp.QuoteMeta("SELECT * FROM `accounts` WHERE `accounts`.`id` = ? LIMIT ?")).WithArgs(1, 1).WillReturnError(errors.New("get error"))
+	mockDB.ExpectQuery(regexp.QuoteMeta("SELECT * FROM `customers` WHERE `customers`.`cif_no` = ? LIMIT ?")).WithArgs(1, 1).WillReturnError(errors.New("get error"))
 
-	account, err := suite.repository.Get(1)
-	suite.Assert().Nil(account)
+	customer, err := suite.repository.Get(1)
+	suite.Assert().Nil(customer)
 	suite.Assert().NotNil(err)
 	suite.Assert().Equal("get error", err.Error())
 }
