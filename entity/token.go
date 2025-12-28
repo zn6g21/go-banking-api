@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"go-banking-api/pkg"
 	"strings"
 	"time"
 )
@@ -12,8 +13,8 @@ type Token struct {
 	CifNo       int
 }
 
-func (t *Token) IsExpired() bool {
-	return time.Now().After(t.ExpiresAt)
+func (t *Token) IsExpired(clock pkg.Clock) bool {
+	return clock.Now().After(t.ExpiresAt)
 }
 
 func (t *Token) HasScope(targetScope string) bool {

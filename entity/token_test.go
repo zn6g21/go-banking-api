@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"go-banking-api/entity"
+	"go-banking-api/pkg"
 )
 
 func TestToken(t *testing.T) {
@@ -25,13 +26,16 @@ func TestToken(t *testing.T) {
 }
 
 func TestIsExpired(t *testing.T) {
-	token := entity.Token{
-		ExpiresAt: time.Now().Add(-1 * time.Hour),
-	}
-	assert.True(t, token.IsExpired())
+	fixedNow := time.Date(2025, 12, 21, 0, 0, 0, 0, time.UTC)
+	clock := pkg.FixedClock{T: fixedNow}
 
-	token.ExpiresAt = time.Now().Add(1 * time.Hour)
-	assert.False(t, token.IsExpired())
+	token := entity.Token{
+		ExpiresAt: fixedNow.Add(-1 * time.Hour),
+	}
+	assert.True(t, token.IsExpired(clock))
+
+	token.ExpiresAt = fixedNow.Add(1 * time.Hour)
+	assert.False(t, token.IsExpired(clock))
 }
 
 func TestHasScope(t *testing.T) {
