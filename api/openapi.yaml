@@ -13,12 +13,8 @@ paths:
         - accounts
       summary: Lookup account information
       operationId: getAccountInformation
-      parameters:
-        - name: access_token
-          in: header
-          required: true
-          schema:
-            type: string
+      security:
+        - bearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/AccountResponse'
@@ -32,12 +28,8 @@ paths:
         - transactions
       summary: Lookup transaction list
       operationId: getTransactionList
-      parameters:
-        - name: access_token
-          in: header
-          required: true
-          schema:
-            type: string
+      security:
+        - bearerAuth: []
       responses:
         '200':
           $ref: '#/components/responses/TransactionListResponse'
@@ -46,6 +38,10 @@ paths:
         '404':
           $ref: '#/components/responses/ErrorResponse'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
   schemas:
     ApiVersion:
       type: string
@@ -56,26 +52,41 @@ components:
     Account:
       type: object
       properties:
-        baseDate:
-          $ref: '#/components/schemas/BaseDate'
         bankCode:
           type: string
           default: "9876"
         branchCode:
           type: string
-        accountTypeCode:
+        status:
+          type: string
+          enum:
+            - active
+            - closed
+            - frozen
+            - dormant
+        accountType:
           type: string
         accountNumber:
           type: string
+        currency:
+          type: string
         balance:
+          type: string
+        nameKana:
+          type: string
+        nameKanji:
           type: string
       required:
         - baseDate
         - bankCode
         - branchCode
-        - accountTypeCode
+        - status
+        - accountType
         - accountNumber
+        - currency
         - balance
+        - nameKana
+        - nameKanji
     Transaction:
       type: object
       properties:
@@ -127,10 +138,13 @@ components:
             properties:
               apiVersion:
                 $ref: '#/components/schemas/ApiVersion'
+              baseDate:
+                $ref: '#/components/schemas/BaseDate'
               data:
                 $ref: '#/components/schemas/Account'
             required:
               - apiVersion
+              - baseDate
               - data
     TransactionListResponse:
       description: 'transaction list response'

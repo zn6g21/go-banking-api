@@ -18,19 +18,36 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
-	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+)
+
+const (
+	BearerAuthScopes = "bearerAuth.Scopes"
+)
+
+// Defines values for AccountStatus.
+const (
+	Active  AccountStatus = "active"
+	Closed  AccountStatus = "closed"
+	Dormant AccountStatus = "dormant"
+	Frozen  AccountStatus = "frozen"
 )
 
 // Account defines model for Account.
 type Account struct {
-	AccountNumber   string   `json:"accountNumber"`
-	AccountTypeCode string   `json:"accountTypeCode"`
-	Balance         string   `json:"balance"`
-	BankCode        string   `json:"bankCode"`
-	BaseDate        BaseDate `json:"baseDate"`
-	BranchCode      string   `json:"branchCode"`
+	AccountNumber string        `json:"accountNumber"`
+	AccountType   string        `json:"accountType"`
+	Balance       string        `json:"balance"`
+	BankCode      string        `json:"bankCode"`
+	BranchCode    string        `json:"branchCode"`
+	Currency      string        `json:"currency"`
+	NameKana      string        `json:"nameKana"`
+	NameKanji     string        `json:"nameKanji"`
+	Status        AccountStatus `json:"status"`
 }
+
+// AccountStatus defines model for Account.Status.
+type AccountStatus string
 
 // ApiVersion defines model for ApiVersion.
 type ApiVersion = string
@@ -62,6 +79,7 @@ type TransactionList struct {
 // AccountResponse defines model for AccountResponse.
 type AccountResponse struct {
 	ApiVersion ApiVersion `json:"apiVersion"`
+	BaseDate   BaseDate   `json:"baseDate"`
 	Data       Account    `json:"data"`
 }
 
@@ -74,16 +92,6 @@ type ErrorResponse struct {
 type TransactionListResponse struct {
 	ApiVersion ApiVersion      `json:"apiVersion"`
 	Data       TransactionList `json:"data"`
-}
-
-// GetAccountInformationParams defines parameters for GetAccountInformation.
-type GetAccountInformationParams struct {
-	AccessToken string `json:"access_token"`
-}
-
-// GetTransactionListParams defines parameters for GetTransactionList.
-type GetTransactionListParams struct {
-	AccessToken string `json:"access_token"`
 }
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
@@ -160,14 +168,14 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// GetAccountInformation request
-	GetAccountInformation(ctx context.Context, params *GetAccountInformationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetAccountInformation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTransactionList request
-	GetTransactionList(ctx context.Context, params *GetTransactionListParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetTransactionList(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetAccountInformation(ctx context.Context, params *GetAccountInformationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAccountInformationRequest(c.Server, params)
+func (c *Client) GetAccountInformation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAccountInformationRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -178,8 +186,8 @@ func (c *Client) GetAccountInformation(ctx context.Context, params *GetAccountIn
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetTransactionList(ctx context.Context, params *GetTransactionListParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetTransactionListRequest(c.Server, params)
+func (c *Client) GetTransactionList(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTransactionListRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +199,7 @@ func (c *Client) GetTransactionList(ctx context.Context, params *GetTransactionL
 }
 
 // NewGetAccountInformationRequest generates requests for GetAccountInformation
-func NewGetAccountInformationRequest(server string, params *GetAccountInformationParams) (*http.Request, error) {
+func NewGetAccountInformationRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -214,24 +222,11 @@ func NewGetAccountInformationRequest(server string, params *GetAccountInformatio
 		return nil, err
 	}
 
-	if params != nil {
-
-		var headerParam0 string
-
-		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "access_token", runtime.ParamLocationHeader, params.AccessToken)
-		if err != nil {
-			return nil, err
-		}
-
-		req.Header.Set("access_token", headerParam0)
-
-	}
-
 	return req, nil
 }
 
 // NewGetTransactionListRequest generates requests for GetTransactionList
-func NewGetTransactionListRequest(server string, params *GetTransactionListParams) (*http.Request, error) {
+func NewGetTransactionListRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -252,19 +247,6 @@ func NewGetTransactionListRequest(server string, params *GetTransactionListParam
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-
-		var headerParam0 string
-
-		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "access_token", runtime.ParamLocationHeader, params.AccessToken)
-		if err != nil {
-			return nil, err
-		}
-
-		req.Header.Set("access_token", headerParam0)
-
 	}
 
 	return req, nil
@@ -314,10 +296,10 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// GetAccountInformationWithResponse request
-	GetAccountInformationWithResponse(ctx context.Context, params *GetAccountInformationParams, reqEditors ...RequestEditorFn) (*GetAccountInformationResponse, error)
+	GetAccountInformationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAccountInformationResponse, error)
 
 	// GetTransactionListWithResponse request
-	GetTransactionListWithResponse(ctx context.Context, params *GetTransactionListParams, reqEditors ...RequestEditorFn) (*GetTransactionListResponse, error)
+	GetTransactionListWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTransactionListResponse, error)
 }
 
 type GetAccountInformationResponse struct {
@@ -369,8 +351,8 @@ func (r GetTransactionListResponse) StatusCode() int {
 }
 
 // GetAccountInformationWithResponse request returning *GetAccountInformationResponse
-func (c *ClientWithResponses) GetAccountInformationWithResponse(ctx context.Context, params *GetAccountInformationParams, reqEditors ...RequestEditorFn) (*GetAccountInformationResponse, error) {
-	rsp, err := c.GetAccountInformation(ctx, params, reqEditors...)
+func (c *ClientWithResponses) GetAccountInformationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAccountInformationResponse, error) {
+	rsp, err := c.GetAccountInformation(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -378,8 +360,8 @@ func (c *ClientWithResponses) GetAccountInformationWithResponse(ctx context.Cont
 }
 
 // GetTransactionListWithResponse request returning *GetTransactionListResponse
-func (c *ClientWithResponses) GetTransactionListWithResponse(ctx context.Context, params *GetTransactionListParams, reqEditors ...RequestEditorFn) (*GetTransactionListResponse, error) {
-	rsp, err := c.GetTransactionList(ctx, params, reqEditors...)
+func (c *ClientWithResponses) GetTransactionListWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTransactionListResponse, error) {
+	rsp, err := c.GetTransactionList(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -470,10 +452,10 @@ func ParseGetTransactionListResponse(rsp *http.Response) (*GetTransactionListRes
 type ServerInterface interface {
 	// Lookup account information
 	// (GET /accounts)
-	GetAccountInformation(c *gin.Context, params GetAccountInformationParams)
+	GetAccountInformation(c *gin.Context)
 	// Lookup transaction list
 	// (GET /transactions)
-	GetTransactionList(c *gin.Context, params GetTransactionListParams)
+	GetTransactionList(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -488,34 +470,7 @@ type MiddlewareFunc func(c *gin.Context)
 // GetAccountInformation operation middleware
 func (siw *ServerInterfaceWrapper) GetAccountInformation(c *gin.Context) {
 
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetAccountInformationParams
-
-	headers := c.Request.Header
-
-	// ------------- Required header parameter "access_token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("access_token")]; found {
-		var AccessToken string
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for access_token, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "access_token", valueList[0], &AccessToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter access_token: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.AccessToken = AccessToken
-
-	} else {
-		siw.ErrorHandler(c, fmt.Errorf("Header parameter access_token is required, but not found"), http.StatusBadRequest)
-		return
-	}
+	c.Set(BearerAuthScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -524,40 +479,13 @@ func (siw *ServerInterfaceWrapper) GetAccountInformation(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetAccountInformation(c, params)
+	siw.Handler.GetAccountInformation(c)
 }
 
 // GetTransactionList operation middleware
 func (siw *ServerInterfaceWrapper) GetTransactionList(c *gin.Context) {
 
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetTransactionListParams
-
-	headers := c.Request.Header
-
-	// ------------- Required header parameter "access_token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("access_token")]; found {
-		var AccessToken string
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for access_token, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "access_token", valueList[0], &AccessToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter access_token: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.AccessToken = AccessToken
-
-	} else {
-		siw.ErrorHandler(c, fmt.Errorf("Header parameter access_token is required, but not found"), http.StatusBadRequest)
-		return
-	}
+	c.Set(BearerAuthScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -566,7 +494,7 @@ func (siw *ServerInterfaceWrapper) GetTransactionList(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetTransactionList(c, params)
+	siw.Handler.GetTransactionList(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -603,18 +531,20 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"ywsAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
