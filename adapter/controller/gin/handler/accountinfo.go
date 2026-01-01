@@ -31,7 +31,7 @@ func NewAccountInfoHandler(accountInfoUseCase usecase.AccountInfoUsecase, tokenU
 	}
 }
 
-func (a *AccountInfoHandler) GetAccountInfo(c *gin.Context) {
+func (a *AccountInfoHandler) GetAccountInformation(c *gin.Context) {
 	authorization := c.GetHeader("Authorization")
 	if authorization == "" {
 		logger.Info("authorization header is required")
@@ -61,6 +61,10 @@ func (a *AccountInfoHandler) GetAccountInfo(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, a.accountInfoToResponse(accountInfo))
+}
+
+func (a *AccountInfoHandler) GetTransactionList(c *gin.Context) {
+	c.JSON(presenter.NewErrorResponse(http.StatusNotImplemented, "not implemented"))
 }
 
 func (a *AccountInfoHandler) accountInfoToResponse(accountInfo *usecase.AccountInfo) *presenter.AccountResponse {

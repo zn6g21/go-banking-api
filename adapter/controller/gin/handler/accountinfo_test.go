@@ -86,7 +86,7 @@ func (suite *AccountInfoHandlerSuite) TestGet() {
 	ginContext, _ := gin.CreateTestContext(w)
 	ginContext.Request = request
 
-	suite.accountInfoHandler.GetAccountInfo(ginContext)
+	suite.accountInfoHandler.GetAccountInformation(ginContext)
 
 	bodyBytes, _ := io.ReadAll(w.Body)
 	var accountResponse presenter.AccountResponse
@@ -116,7 +116,7 @@ func (suite *AccountInfoHandlerSuite) TestGet_MissingAuthorizationHeader() {
 	ginContext, _ := gin.CreateTestContext(w)
 	ginContext.Request = request
 
-	suite.accountInfoHandler.GetAccountInfo(ginContext)
+	suite.accountInfoHandler.GetAccountInformation(ginContext)
 
 	bodyBytes, _ := io.ReadAll(w.Body)
 	var errorResponse presenter.ErrorResponse
@@ -138,7 +138,7 @@ func (suite *AccountInfoHandlerSuite) TestGet_InvalidAuthorizationHeader() {
 	ginContext, _ := gin.CreateTestContext(w)
 	ginContext.Request = request
 
-	suite.accountInfoHandler.GetAccountInfo(ginContext)
+	suite.accountInfoHandler.GetAccountInformation(ginContext)
 
 	bodyBytes, _ := io.ReadAll(w.Body)
 	var errorResponse presenter.ErrorResponse
@@ -162,7 +162,7 @@ func (suite *AccountInfoHandlerSuite) TestGet_TokenValidationError() {
 	ginContext, _ := gin.CreateTestContext(w)
 	ginContext.Request = request
 
-	suite.accountInfoHandler.GetAccountInfo(ginContext)
+	suite.accountInfoHandler.GetAccountInformation(ginContext)
 
 	bodyBytes, _ := io.ReadAll(w.Body)
 	var errorResponse presenter.ErrorResponse
@@ -192,7 +192,7 @@ func (suite *AccountInfoHandlerSuite) TestGet_UsecaseError() {
 	ginContext, _ := gin.CreateTestContext(w)
 	ginContext.Request = request
 
-	suite.accountInfoHandler.GetAccountInfo(ginContext)
+	suite.accountInfoHandler.GetAccountInformation(ginContext)
 
 	bodyBytes, _ := io.ReadAll(w.Body)
 	var errorResponse presenter.ErrorResponse
