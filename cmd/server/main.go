@@ -13,6 +13,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"go-banking-api/infrastructure/database"
 	"go-banking-api/infrastructure/web"
 	"go-banking-api/pkg"
 	"go-banking-api/pkg/logger"
@@ -27,14 +28,15 @@ func main() {
 		}
 	}
 
-	/*
-		db, err := database.NewDatabaseSQLFactory(database.InstanceMySQL)
-		if err != nil {
-			logger.Fatal(err.Error())
-		}
-	*/
+	db, err := database.NewDatabaseSQLFactory(database.InstanceMySQL)
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
 
-	server := web.NewServer()
+	server, err := web.NewServer(db)
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
 
 	go func() {
 		if err := server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
