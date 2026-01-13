@@ -61,3 +61,9 @@ func (suite *DBMySQLSuite) SetupSuite() {
 		suite.Assert().Nil(err)
 	}
 }
+
+func (suite *DBMySQLSuite) TearDownSuite() {
+	if suite.mySQLContainer != nil {
+		_ = suite.mySQLContainer.Terminate(suite.ctx)
+	}
+}
