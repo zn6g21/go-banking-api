@@ -20,7 +20,8 @@ type DBSQLiteSuite struct {
 func (suite *DBSQLiteSuite) SetupSuite() {
 	suite.DBName = fmt.Sprintf("%s.unittest.sqlite", suite.T().Name())
 
-	os.Setenv("DB_NAME", suite.DBName)
+	err := os.Setenv("DB_NAME", suite.DBName)
+	suite.Assert().Nil(err)
 	db, err := database.NewDatabaseSQLFactory(database.InstanceSQLite)
 	suite.Assert().Nil(err)
 	suite.DB = db
@@ -34,5 +35,6 @@ func (suite *DBSQLiteSuite) SetupSuite() {
 func (suite *DBSQLiteSuite) TearDownSuite() {
 	err := os.Remove(suite.DBName)
 	suite.Assert().Nil(err)
-	os.Unsetenv(suite.DBName)
+	err = os.Unsetenv("DB_NAME")
+	suite.Assert().Nil(err)
 }
