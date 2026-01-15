@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -21,13 +20,12 @@ func GetEndpoint(path string) string {
 }
 
 func CheckPort(host string, port string) bool {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%s", host, port))
-	if conn != nil {
-		conn.Close()
-		return false
-	}
+	conn, err := net.Dial("tcp", net.JoinHostPort(host, port))
 	if err != nil {
 		return true
+	}
+	if closeErr := conn.Close(); closeErr != nil {
+		return false
 	}
 	return false
 }
