@@ -25,7 +25,7 @@ func TestTokenRepositorySuite(t *testing.T) {
 
 func (suite *TokenRepositoryTestSuite) SetupSuite() {
 	suite.DBSQLiteSuite.SetupSuite()
-	suite.repository = gateway.NewTokenRepository(suite.DBSQLiteSuite.DB)
+	suite.repository = gateway.NewTokenRepository(suite.DB)
 }
 
 func (suite *TokenRepositoryTestSuite) MockDB() sqlmock.Sqlmock {

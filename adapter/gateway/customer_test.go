@@ -25,7 +25,7 @@ func TestCustomerRepositorySuite(t *testing.T) {
 
 func (suite *CustomerRepositoryTestSuite) SetupSuite() {
 	suite.DBSQLiteSuite.SetupSuite()
-	suite.repository = gateway.NewCustomerRepository(suite.DBSQLiteSuite.DB)
+	suite.repository = gateway.NewCustomerRepository(suite.DB)
 }
 
 func (suite *CustomerRepositoryTestSuite) MockDB() sqlmock.Sqlmock {
