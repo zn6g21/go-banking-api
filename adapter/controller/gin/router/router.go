@@ -1,14 +1,27 @@
 package router
 
 import (
+	"encoding/json"
+	"time"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
+	ginMiddleware "github.com/oapi-codegen/gin-middleware"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/swaggo/swag"
+	"gorm.io/gorm"
 
 	"go-banking-api/adapter/controller/gin/handler"
 	"go-banking-api/adapter/controller/gin/middleware"
+	"go-banking-api/adapter/controller/gin/presenter"
+	"go-banking-api/adapter/gateway"
+	"go-banking-api/pkg"
+	"go-banking-api/pkg/logger"
+	"go-banking-api/usecase"
 )
 
-/*
-// Swaggerの設定をする
 func setupSwagger(router *gin.Engine) (*openapi3.T, error) {
 	swagger, err := presenter.GetSwagger()
 	if err != nil {
@@ -27,23 +40,46 @@ func setupSwagger(router *gin.Engine) (*openapi3.T, error) {
 	}
 	return swagger, nil
 }
-*/
 
-func NewGinRouter(corsAllowOrigins []string) *gin.Engine {
+func NewGinRouter(db *gorm.DB, corsAllowOrigins []string) (*gin.Engine, error) {
 	router := gin.Default()
 
 	router.Use(middleware.CorsMiddleware(corsAllowOrigins))
-	/*swagger, err := setupSwagger(router)
+	swagger, err := setupSwagger(router)
 	if err != nil {
 		logger.Warn(err.Error())
 		return nil, err
-	} */
+	}
 
 	router.Use(middleware.GinZap())
 	router.Use(middleware.RecoveryWithZap())
 
-	// Healthチェック用のAPIです
 	router.GET("/health", handler.Health)
 
-	return router
+	apiGroup := router.Group("/api")
+	{
+		apiGroup.Use(middleware.TimeoutMiddleware(2 * time.Second))
+		v1 := apiGroup.Group("/v1")
+		{
+			v1.Use(ginMiddleware.OapiRequestValidatorWithOptions(
+				swagger,
+				&ginMiddleware.Options{
+					Options: openapi3filter.Options{
+						AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+					},
+				},
+			))
+
+			customerRepository := gateway.NewCustomerRepository(db)
+			accountRepository := gateway.NewAccountRepository(db)
+			tokenRepository := gateway.NewTokenRepository(db)
+			clock := pkg.RealClock{}
+			tokenUsecase := usecase.NewTokenUsecase(tokenRepository, clock)
+			accountInfoUseCase := usecase.NewAccountInfoUsecase(customerRepository, accountRepository)
+			accountInfoHandler := handler.NewAccountInfoHandler(accountInfoUseCase, tokenUsecase, clock)
+			presenter.RegisterHandlers(v1, accountInfoHandler)
+		}
+	}
+
+	return router, err
 }

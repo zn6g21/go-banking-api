@@ -2,6 +2,8 @@ package web
 
 import (
 	"context"
+
+	"gorm.io/gorm"
 )
 
 type Server interface {
@@ -9,7 +11,7 @@ type Server interface {
 	Shutdown(ctx context.Context) error
 }
 
-func NewServer() Server {
+func NewServer(db *gorm.DB) (Server, error) {
 	config := NewConfigWeb()
-	return NewGinServer(config.Host, config.Port, config.CorsAllowOrigins)
+	return NewGinServer(config.Host, config.Port, config.CorsAllowOrigins, db)
 }
