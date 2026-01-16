@@ -77,7 +77,6 @@ components:
         nameKanji:
           type: string
       required:
-        - baseDate
         - bankCode
         - branchCode
         - status
