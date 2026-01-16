@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -56,6 +57,11 @@ func (a *AccountInfoHandler) GetAccountInformation(c *gin.Context) {
 
 	accountInfo, err := a.accountInfoUseCase.Get(validatedToken.CifNo)
 	if err != nil {
+		if errors.Is(err, usecase.ErrAccountNotFound) || errors.Is(err, usecase.ErrAccountInactive) {
+			logger.Info(err.Error())
+			c.JSON(presenter.NewErrorResponse(http.StatusNotFound, "account not found"))
+			return
+		}
 		logger.Error(err.Error())
 		c.JSON(presenter.NewErrorResponse(http.StatusInternalServerError, "internal server error"))
 		return

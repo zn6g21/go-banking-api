@@ -125,7 +125,6 @@ func (suite *AccountInfoUseCaseSuite) TestGetAccountRepositoryError() {
 }
 
 func (suite *AccountInfoUseCaseSuite) TestGetAccountNotActive() {
-	expectedErr := errors.New("account is not active")
 	mockCustomerRepository := NewMockCustomerRepository()
 	mockAccountRepository := NewMockAccountRepository()
 	suite.accountInfoUseCase = NewAccountInfoUsecase(mockCustomerRepository, mockAccountRepository)
@@ -140,5 +139,5 @@ func (suite *AccountInfoUseCaseSuite) TestGetAccountNotActive() {
 
 	accountInfo, err := suite.accountInfoUseCase.Get(1)
 	suite.Assert().Nil(accountInfo)
-	suite.Assert().Equal(expectedErr, err)
+	suite.Assert().ErrorIs(err, ErrAccountInactive)
 }

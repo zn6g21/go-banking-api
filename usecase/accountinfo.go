@@ -2,8 +2,16 @@ package usecase
 
 import (
 	"errors"
+
 	"go-banking-api/adapter/gateway"
 	"go-banking-api/entity"
+
+	"gorm.io/gorm"
+)
+
+var (
+	ErrAccountNotFound = errors.New("account not found")
+	ErrAccountInactive = errors.New("account is not active")
 )
 
 type AccountInfo struct {
@@ -39,14 +47,20 @@ func NewAccountInfoUsecase(
 func (a *accountInfoUsecase) Get(cifNo int) (*AccountInfo, error) {
 	customer, err := a.customerRepository.Get(cifNo)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountNotFound
+		}
 		return nil, err
 	}
 	account, err := a.accountRepository.Get(cifNo)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAccountNotFound
+		}
 		return nil, err
 	}
 	if !account.IsActive() {
-		return nil, errors.New("account is not active")
+		return nil, ErrAccountInactive
 	}
 	return &AccountInfo{
 		NameKana:      customer.NameKana,

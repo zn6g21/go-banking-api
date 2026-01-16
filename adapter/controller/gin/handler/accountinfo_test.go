@@ -28,6 +28,9 @@ func NewMockAccountInfoUsecase() *MockAccountInfoUsecase {
 
 func (m *MockAccountInfoUsecase) Get(cifNo int) (*usecase.AccountInfo, error) {
 	args := m.Called(cifNo)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*usecase.AccountInfo), args.Error(1)
 }
 
@@ -147,6 +150,66 @@ func (suite *AccountInfoHandlerSuite) TestGet_InvalidAuthorizationHeader() {
 	suite.Assert().Equal(http.StatusUnauthorized, w.Code)
 	suite.Assert().Equal(http.StatusUnauthorized, errorResponse.Error.Code)
 	suite.Assert().Equal("invalid access token", errorResponse.Error.Message)
+}
+
+func (suite *AccountInfoHandlerSuite) TestGet_AccountNotFound() {
+	mockUsecase := NewMockAccountInfoUsecase()
+	mockTokenUsecase := NewMockTokenUsecase()
+	suite.accountInfoHandler = NewAccountInfoHandler(mockUsecase, mockTokenUsecase, pkg.FixedClock{})
+
+	mockTokenUsecase.On("Validate", "access-token-1", "read:account_and_transactions").Return(&entity.Token{
+		AccessToken: "access-token-1",
+		Scopes:      "read:account_and_transactions",
+		ExpiresAt:   time.Now().Add(1 * time.Hour),
+		CifNo:       1,
+	}, nil)
+	mockUsecase.On("Get", 1).Return(nil, usecase.ErrAccountNotFound)
+
+	request, _ := http.NewRequest("GET", "/api/v1/accounts", nil)
+	request.Header.Set("Authorization", "Bearer access-token-1")
+	w := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(w)
+	ginContext.Request = request
+
+	suite.accountInfoHandler.GetAccountInformation(ginContext)
+
+	bodyBytes, _ := io.ReadAll(w.Body)
+	var errorResponse presenter.ErrorResponse
+	err := json.Unmarshal(bodyBytes, &errorResponse)
+	suite.Assert().Nil(err)
+	suite.Assert().Equal(http.StatusNotFound, w.Code)
+	suite.Assert().Equal(http.StatusNotFound, errorResponse.Error.Code)
+	suite.Assert().Equal("account not found", errorResponse.Error.Message)
+}
+
+func (suite *AccountInfoHandlerSuite) TestGet_AccountInactive() {
+	mockUsecase := NewMockAccountInfoUsecase()
+	mockTokenUsecase := NewMockTokenUsecase()
+	suite.accountInfoHandler = NewAccountInfoHandler(mockUsecase, mockTokenUsecase, pkg.FixedClock{})
+
+	mockTokenUsecase.On("Validate", "access-token-1", "read:account_and_transactions").Return(&entity.Token{
+		AccessToken: "access-token-1",
+		Scopes:      "read:account_and_transactions",
+		ExpiresAt:   time.Now().Add(1 * time.Hour),
+		CifNo:       1,
+	}, nil)
+	mockUsecase.On("Get", 1).Return(nil, usecase.ErrAccountInactive)
+
+	request, _ := http.NewRequest("GET", "/api/v1/accounts", nil)
+	request.Header.Set("Authorization", "Bearer access-token-1")
+	w := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(w)
+	ginContext.Request = request
+
+	suite.accountInfoHandler.GetAccountInformation(ginContext)
+
+	bodyBytes, _ := io.ReadAll(w.Body)
+	var errorResponse presenter.ErrorResponse
+	err := json.Unmarshal(bodyBytes, &errorResponse)
+	suite.Assert().Nil(err)
+	suite.Assert().Equal(http.StatusNotFound, w.Code)
+	suite.Assert().Equal(http.StatusNotFound, errorResponse.Error.Code)
+	suite.Assert().Equal("account not found", errorResponse.Error.Message)
 }
 
 func (suite *AccountInfoHandlerSuite) TestGet_TokenValidationError() {
