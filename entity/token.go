@@ -8,6 +8,7 @@ import (
 
 type Token struct {
 	AccessToken string
+	RefreshToken string
 	Scopes      string // "read:account_and_transactions write:transfer" のようなスペース区切り
 	ExpiresAt   time.Time
 	CifNo       int
