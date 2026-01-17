@@ -37,6 +37,27 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '404':
           $ref: '#/components/responses/ErrorResponse'
+  /token:
+    post:
+      tags:
+        - token
+      summary: Refresh access token
+      operationId: postToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/TokenResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -117,6 +138,32 @@ components:
             $ref: '#/components/schemas/Transaction'
       required:
         - transactions
+    TokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+        - refreshToken
+    TokenData:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+          default: "Bearer"
+        expiresIn:
+          type: integer
+          format: integer
+          default: 3600
+      required:
+        - accessToken
+        - refreshToken
+        - tokenType
+        - expiresIn
     Error:
       type: object
       properties:
@@ -156,6 +203,20 @@ components:
                 $ref: '#/components/schemas/ApiVersion'
               data:
                 $ref: '#/components/schemas/TransactionList'
+            required:
+              - apiVersion
+              - data
+    TokenResponse:
+      description: 'token response'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              apiVersion:
+                $ref: '#/components/schemas/ApiVersion'
+              data:
+                $ref: '#/components/schemas/TokenData'
             required:
               - apiVersion
               - data
