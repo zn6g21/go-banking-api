@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"time"
+
 	"go-banking-api/entity"
 
 	"gorm.io/gorm"
@@ -8,6 +10,7 @@ import (
 
 type TokenRepository interface {
 	Get(token string) (*entity.Token, error)
+	UpdateByRefreshToken(refreshToken string, accessToken string, newRefreshToken string, expiresAt time.Time) error
 }
 
 type tokenRepository struct {
@@ -24,4 +27,19 @@ func (t *tokenRepository) Get(tokenVal string) (*entity.Token, error) {
 		return nil, err
 	}
 	return &token, nil
+}
+
+func (t *tokenRepository) UpdateByRefreshToken(refreshToken string, accessToken string, newRefreshToken string, expiresAt time.Time) error {
+	result := t.db.Model(&entity.Token{}).Where("refresh_token = ?", refreshToken).Updates(map[string]interface{}{
+		"access_token":  accessToken,
+		"refresh_token": newRefreshToken,
+		"expires_at":    expiresAt,
+	})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
