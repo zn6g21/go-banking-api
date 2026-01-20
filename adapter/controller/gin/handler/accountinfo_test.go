@@ -50,6 +50,14 @@ func (m *MockTokenUsecase) Validate(accessTokenFromHeader string, requiredScope 
 	return args.Get(0).(*entity.Token), args.Error(1)
 }
 
+func (m *MockTokenUsecase) Refresh(refreshToken string) (*entity.Token, error) {
+	args := m.Called(refreshToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Token), args.Error(1)
+}
+
 type AccountInfoHandlerSuite struct {
 	suite.Suite
 	accountInfoHandler *AccountInfoHandler
