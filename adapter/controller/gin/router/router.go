@@ -77,7 +77,11 @@ func NewGinRouter(db *gorm.DB, corsAllowOrigins []string) (*gin.Engine, error) {
 			tokenUsecase := usecase.NewTokenUsecase(tokenRepository, clock)
 			accountInfoUseCase := usecase.NewAccountInfoUsecase(customerRepository, accountRepository)
 			accountInfoHandler := handler.NewAccountInfoHandler(accountInfoUseCase, tokenUsecase, clock)
-			presenter.RegisterHandlers(v1, accountInfoHandler)
+			tokenHandler := handler.NewTokenHandler(tokenUsecase, clock)
+			presenter.RegisterHandlers(v1,
+				handler.NewHandler().
+					Register(accountInfoHandler).
+					Register(tokenHandler))
 		}
 	}
 
