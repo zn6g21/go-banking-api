@@ -64,5 +64,8 @@ goimports: ## Run goimports to show the diff
 
 prettier: vet gofmt goimports lint ## Show the code that needs to be modified
 
+vulncheck: ## Run vulncheck to show the diff
+	govulncheck ./...
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $1, $2}'
