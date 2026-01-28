@@ -43,6 +43,8 @@ paths:
         - token
       summary: Refresh access token
       operationId: postToken
+      security:
+        - basicAuth: []
       requestBody:
         required: true
         content:
@@ -63,6 +65,9 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
   schemas:
     ApiVersion:
       type: string
