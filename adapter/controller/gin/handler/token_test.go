@@ -31,6 +31,7 @@ func TestTokenHandlerSuite(t *testing.T) {
 
 func (suite *TokenHandlerSuite) TestPostTokenSuccess() {
 	mockTokenUsecase := NewMockTokenUsecase()
+	mockClientUsecase := NewMockClientUsecase()
 	fixedNow := time.Date(2025, 12, 21, 0, 0, 0, 0, time.UTC)
 	clock := pkg.FixedClock{T: fixedNow}
 	expectedToken := &entity.Token{
@@ -38,12 +39,14 @@ func (suite *TokenHandlerSuite) TestPostTokenSuccess() {
 		RefreshToken: "refresh-token-2",
 		ExpiresAt:    fixedNow.Add(1 * time.Hour),
 	}
-	mockTokenUsecase.On("Refresh", "refresh-token-1").Return(expectedToken, nil)
+	mockClientUsecase.On("Authenticate", "client-1", "secret-1").Return(&entity.Client{ClientID: "client-1"}, nil)
+	mockTokenUsecase.On("Refresh", "refresh-token-1", "client-1").Return(expectedToken, nil)
 
-	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, clock)
+	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, clock)
 
 	body, err := json.Marshal(presenter.TokenRequest{RefreshToken: "refresh-token-1"})
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader(body))
+	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ginContext, _ := gin.CreateTestContext(w)
@@ -65,11 +68,14 @@ func (suite *TokenHandlerSuite) TestPostTokenSuccess() {
 
 func (suite *TokenHandlerSuite) TestPostTokenMissingRefreshToken() {
 	mockTokenUsecase := NewMockTokenUsecase()
-	mockTokenUsecase.On("Refresh", "").Return(nil, usecase.ErrRefreshTokenRequired)
+	mockClientUsecase := NewMockClientUsecase()
+	mockClientUsecase.On("Authenticate", "client-1", "secret-1").Return(&entity.Client{ClientID: "client-1"}, nil)
+	mockTokenUsecase.On("Refresh", "", "client-1").Return(nil, usecase.ErrRefreshTokenRequired)
 
-	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, pkg.FixedClock{T: time.Now()})
+	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, pkg.FixedClock{T: time.Now()})
 
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader([]byte(`{}`)))
+	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ginContext, _ := gin.CreateTestContext(w)
@@ -88,11 +94,14 @@ func (suite *TokenHandlerSuite) TestPostTokenMissingRefreshToken() {
 
 func (suite *TokenHandlerSuite) TestPostTokenInvalidRefreshToken() {
 	mockTokenUsecase := NewMockTokenUsecase()
-	mockTokenUsecase.On("Refresh", "refresh-token-1").Return(nil, usecase.ErrInvalidRefreshToken)
-	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, pkg.FixedClock{T: time.Now()})
+	mockClientUsecase := NewMockClientUsecase()
+	mockClientUsecase.On("Authenticate", "client-1", "secret-1").Return(&entity.Client{ClientID: "client-1"}, nil)
+	mockTokenUsecase.On("Refresh", "refresh-token-1", "client-1").Return(nil, usecase.ErrInvalidRefreshToken)
+	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, pkg.FixedClock{T: time.Now()})
 
 	body, err := json.Marshal(presenter.TokenRequest{RefreshToken: "refresh-token-1"})
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader(body))
+	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ginContext, _ := gin.CreateTestContext(w)
@@ -111,11 +120,14 @@ func (suite *TokenHandlerSuite) TestPostTokenInvalidRefreshToken() {
 
 func (suite *TokenHandlerSuite) TestPostTokenUsecaseError() {
 	mockTokenUsecase := NewMockTokenUsecase()
-	mockTokenUsecase.On("Refresh", "refresh-token-1").Return(nil, errors.New("db error"))
-	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, pkg.FixedClock{T: time.Now()})
+	mockClientUsecase := NewMockClientUsecase()
+	mockClientUsecase.On("Authenticate", "client-1", "secret-1").Return(&entity.Client{ClientID: "client-1"}, nil)
+	mockTokenUsecase.On("Refresh", "refresh-token-1", "client-1").Return(nil, errors.New("db error"))
+	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, pkg.FixedClock{T: time.Now()})
 
 	body, err := json.Marshal(presenter.TokenRequest{RefreshToken: "refresh-token-1"})
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader(body))
+	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	ginContext, _ := gin.CreateTestContext(w)
