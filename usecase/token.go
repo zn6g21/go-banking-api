@@ -15,7 +15,7 @@ import (
 
 type TokenUsecase interface {
 	Validate(accessTokenFromHeader string, requiredScope string) (*entity.Token, error)
-	Refresh(refreshToken string) (*entity.Token, error)
+	Refresh(refreshToken string, clientID string) (*entity.Token, error)
 }
 
 type tokenUsecase struct {
@@ -61,9 +61,23 @@ func (t *tokenUsecase) Validate(accessTokenFromHeader string, requiredScope stri
 	return storedToken, nil
 }
 
-func (t *tokenUsecase) Refresh(refreshToken string) (*entity.Token, error) {
+func (t *tokenUsecase) Refresh(refreshToken string, clientID string) (*entity.Token, error) {
 	if refreshToken == "" {
 		return nil, ErrRefreshTokenRequired
+	}
+	if clientID == "" {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	storedToken, err := t.tokenRepository.GetByRefreshToken(refreshToken)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidRefreshToken
+		}
+		return nil, err
+	}
+	if storedToken.ClientID != clientID {
+		return nil, ErrInvalidRefreshToken
 	}
 
 	accessToken, err := generateToken()
@@ -86,6 +100,7 @@ func (t *tokenUsecase) Refresh(refreshToken string) (*entity.Token, error) {
 	return &entity.Token{
 		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
+		ClientID:     clientID,
 		ExpiresAt:    expiresAt,
 	}, nil
 }

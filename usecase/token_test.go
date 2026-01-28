@@ -29,6 +29,14 @@ func (m *mockTokenRepository) Get(token string) (*entity.Token, error) {
 	return args.Get(0).(*entity.Token), args.Error(1)
 }
 
+func (m *mockTokenRepository) GetByRefreshToken(refreshToken string) (*entity.Token, error) {
+	args := m.Called(refreshToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Token), args.Error(1)
+}
+
 func (m *mockTokenRepository) UpdateByRefreshToken(refreshToken string, accessToken string, newRefreshToken string, expiresAt time.Time) error {
 	args := m.Called(refreshToken, accessToken, newRefreshToken, expiresAt)
 	return args.Error(0)
@@ -160,6 +168,10 @@ func (suite *TokenUsecaseSuite) TestRefresh() {
 	suite.tokenUsecase = NewTokenUsecase(mockTokenRepository, clock)
 
 	expectedExpiresAt := fixedNow.Add(1 * time.Hour)
+	mockTokenRepository.On("GetByRefreshToken", "refresh-token-1").Return(&entity.Token{
+		RefreshToken: "refresh-token-1",
+		ClientID:     "client-1",
+	}, nil)
 	mockTokenRepository.On(
 		"UpdateByRefreshToken",
 		"refresh-token-1",
@@ -168,7 +180,7 @@ func (suite *TokenUsecaseSuite) TestRefresh() {
 		expectedExpiresAt,
 	).Return(nil)
 
-	token, err := suite.tokenUsecase.Refresh("refresh-token-1")
+	token, err := suite.tokenUsecase.Refresh("refresh-token-1", "client-1")
 	suite.Assert().Nil(err)
 	suite.Assert().NotEmpty(token.AccessToken)
 	suite.Assert().NotEmpty(token.RefreshToken)
@@ -179,7 +191,7 @@ func (suite *TokenUsecaseSuite) TestRefreshEmptyRefreshToken() {
 	mockTokenRepository := NewMockTokenRepository()
 	suite.tokenUsecase = NewTokenUsecase(mockTokenRepository, pkg.FixedClock{T: time.Now()})
 
-	token, err := suite.tokenUsecase.Refresh("")
+	token, err := suite.tokenUsecase.Refresh("", "client-1")
 	suite.Assert().Nil(token)
 	suite.Assert().NotNil(err)
 	suite.Assert().Equal("refresh token is required", err.Error())
@@ -189,10 +201,24 @@ func (suite *TokenUsecaseSuite) TestRefreshInvalidRefreshToken() {
 	mockTokenRepository := NewMockTokenRepository()
 	suite.tokenUsecase = NewTokenUsecase(mockTokenRepository, pkg.FixedClock{T: time.Now()})
 
-	mockTokenRepository.On("UpdateByRefreshToken", "refresh-token-1", mock.Anything, mock.Anything, mock.Anything).
-		Return(gorm.ErrRecordNotFound)
+	mockTokenRepository.On("GetByRefreshToken", "refresh-token-1").Return(nil, gorm.ErrRecordNotFound)
 
-	token, err := suite.tokenUsecase.Refresh("refresh-token-1")
+	token, err := suite.tokenUsecase.Refresh("refresh-token-1", "client-1")
+	suite.Assert().Nil(token)
+	suite.Assert().NotNil(err)
+	suite.Assert().Equal("invalid refresh token", err.Error())
+}
+
+func (suite *TokenUsecaseSuite) TestRefreshClientMismatch() {
+	mockTokenRepository := NewMockTokenRepository()
+	suite.tokenUsecase = NewTokenUsecase(mockTokenRepository, pkg.FixedClock{T: time.Now()})
+
+	mockTokenRepository.On("GetByRefreshToken", "refresh-token-1").Return(&entity.Token{
+		RefreshToken: "refresh-token-1",
+		ClientID:     "client-1",
+	}, nil)
+
+	token, err := suite.tokenUsecase.Refresh("refresh-token-1", "client-2")
 	suite.Assert().Nil(token)
 	suite.Assert().NotNil(err)
 	suite.Assert().Equal("invalid refresh token", err.Error())
@@ -202,10 +228,14 @@ func (suite *TokenUsecaseSuite) TestRefreshUpdateError() {
 	mockTokenRepository := NewMockTokenRepository()
 	suite.tokenUsecase = NewTokenUsecase(mockTokenRepository, pkg.FixedClock{T: time.Now()})
 
+	mockTokenRepository.On("GetByRefreshToken", "refresh-token-1").Return(&entity.Token{
+		RefreshToken: "refresh-token-1",
+		ClientID:     "client-1",
+	}, nil)
 	mockTokenRepository.On("UpdateByRefreshToken", "refresh-token-1", mock.Anything, mock.Anything, mock.Anything).
 		Return(errors.New("update error"))
 
-	token, err := suite.tokenUsecase.Refresh("refresh-token-1")
+	token, err := suite.tokenUsecase.Refresh("refresh-token-1", "client-1")
 	suite.Assert().Nil(token)
 	suite.Assert().NotNil(err)
 	suite.Assert().Equal("update error", err.Error())
