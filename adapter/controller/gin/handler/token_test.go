@@ -45,7 +45,9 @@ func (suite *TokenHandlerSuite) TestPostTokenSuccess() {
 	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, clock)
 
 	body, err := json.Marshal(presenter.TokenRequest{RefreshToken: "refresh-token-1"})
+	suite.Assert().Nil(err)
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader(body))
+	suite.Assert().Nil(err)
 	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -55,6 +57,7 @@ func (suite *TokenHandlerSuite) TestPostTokenSuccess() {
 	suite.tokenHandler.PostToken(ginContext)
 
 	bodyBytes, err := io.ReadAll(w.Body)
+	suite.Assert().Nil(err)
 	var tokenResponse presenter.TokenResponse
 	err = json.Unmarshal(bodyBytes, &tokenResponse)
 	suite.Assert().Nil(err)
@@ -75,6 +78,7 @@ func (suite *TokenHandlerSuite) TestPostTokenMissingRefreshToken() {
 	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, pkg.FixedClock{T: time.Now()})
 
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader([]byte(`{}`)))
+	suite.Assert().Nil(err)
 	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -84,6 +88,7 @@ func (suite *TokenHandlerSuite) TestPostTokenMissingRefreshToken() {
 	suite.tokenHandler.PostToken(ginContext)
 
 	bodyBytes, err := io.ReadAll(w.Body)
+	suite.Assert().Nil(err)
 	var errorResponse presenter.ErrorResponse
 	err = json.Unmarshal(bodyBytes, &errorResponse)
 	suite.Assert().Nil(err)
@@ -100,7 +105,9 @@ func (suite *TokenHandlerSuite) TestPostTokenInvalidRefreshToken() {
 	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, pkg.FixedClock{T: time.Now()})
 
 	body, err := json.Marshal(presenter.TokenRequest{RefreshToken: "refresh-token-1"})
+	suite.Assert().Nil(err)
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader(body))
+	suite.Assert().Nil(err)
 	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -110,6 +117,7 @@ func (suite *TokenHandlerSuite) TestPostTokenInvalidRefreshToken() {
 	suite.tokenHandler.PostToken(ginContext)
 
 	bodyBytes, err := io.ReadAll(w.Body)
+	suite.Assert().Nil(err)
 	var errorResponse presenter.ErrorResponse
 	err = json.Unmarshal(bodyBytes, &errorResponse)
 	suite.Assert().Nil(err)
@@ -126,7 +134,9 @@ func (suite *TokenHandlerSuite) TestPostTokenUsecaseError() {
 	suite.tokenHandler = NewTokenHandler(mockTokenUsecase, mockClientUsecase, pkg.FixedClock{T: time.Now()})
 
 	body, err := json.Marshal(presenter.TokenRequest{RefreshToken: "refresh-token-1"})
+	suite.Assert().Nil(err)
 	request, err := http.NewRequest("POST", "/api/v1/token", bytes.NewReader(body))
+	suite.Assert().Nil(err)
 	request.SetBasicAuth("client-1", "secret-1")
 	request.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -136,6 +146,7 @@ func (suite *TokenHandlerSuite) TestPostTokenUsecaseError() {
 	suite.tokenHandler.PostToken(ginContext)
 
 	bodyBytes, err := io.ReadAll(w.Body)
+	suite.Assert().Nil(err)
 	var errorResponse presenter.ErrorResponse
 	err = json.Unmarshal(bodyBytes, &errorResponse)
 	suite.Assert().Nil(err)
