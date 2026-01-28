@@ -5,5 +5,6 @@ func NewDomains() []interface{} {
 		&Customer{},
 		&Account{},
 		&Token{},
+		&Client{},
 	}
 }
