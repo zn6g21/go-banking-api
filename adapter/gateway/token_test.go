@@ -48,10 +48,28 @@ func (suite *TokenRepositoryTestSuite) TestTokenRepositoryGet() {
 		Scopes:       "read:account_and_transactions",
 		ExpiresAt:    expiresAt,
 		CifNo:        1,
+		ClientID:     "client-1",
 	}
 
 	suite.DB.Create(&paramToken)
 	got, err := suite.repository.Get(paramToken.AccessToken)
+	suite.Assert().Nil(err)
+	suite.Assert().Equal(paramToken, *got)
+}
+
+func (suite *TokenRepositoryTestSuite) TestTokenRepositoryGetByRefreshToken() {
+	expiresAt := pkg.Str2time("2025-12-02")
+	paramToken := entity.Token{
+		AccessToken:  "access-token-1",
+		RefreshToken: "refresh-token-1",
+		Scopes:       "read:account_and_transactions",
+		ExpiresAt:    expiresAt,
+		CifNo:        1,
+		ClientID:     "client-1",
+	}
+
+	suite.DB.Create(&paramToken)
+	got, err := suite.repository.GetByRefreshToken(paramToken.RefreshToken)
 	suite.Assert().Nil(err)
 	suite.Assert().Equal(paramToken, *got)
 }
@@ -64,6 +82,7 @@ func (suite *TokenRepositoryTestSuite) TestTokenRepositoryUpdateByRefreshToken()
 		Scopes:       "read:account_and_transactions",
 		ExpiresAt:    expiresAt,
 		CifNo:        1,
+		ClientID:     "client-1",
 	}
 
 	suite.DB.Create(&paramToken)
