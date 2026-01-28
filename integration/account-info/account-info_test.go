@@ -2,8 +2,9 @@ package integration
 
 import (
 	"context"
-	"go-banking-api/api"
+	"encoding/base64"
 	"go-banking-api/adapter/controller/gin/presenter"
+	"go-banking-api/api"
 	"go-banking-api/entity"
 	"go-banking-api/infrastructure/database"
 	"go-banking-api/pkg"
@@ -58,7 +59,7 @@ func (t *AccountInfoTestSuite) TestGetAccountInfo() {
 	refreshToken := t.getRefreshToken()
 	tokenResponse, err := apiClient.PostTokenWithResponse(context.Background(), presenter.TokenRequest{
 		RefreshToken: refreshToken,
-	})
+	}, t.basicAuthEditor())
 	t.Require().NoError(err)
 	t.Require().NotNil(tokenResponse.JSON200)
 	accessToken := tokenResponse.JSON200.Data.AccessToken
@@ -91,7 +92,7 @@ func (t *AccountInfoTestSuite) TestPostToken() {
 	refreshToken := t.getRefreshToken()
 	response, err := apiClient.PostTokenWithResponse(context.Background(), presenter.TokenRequest{
 		RefreshToken: refreshToken,
-	})
+	}, t.basicAuthEditor())
 	t.Require().NoError(err)
 	t.Require().NotNil(response.JSON200)
 	t.Assert().Equal(http.StatusOK, response.StatusCode())
@@ -108,6 +109,7 @@ func (t *AccountInfoTestSuite) TestPostToken() {
 	t.Require().NoError(err)
 	t.Assert().Equal(response.JSON200.Data.RefreshToken, storedToken.RefreshToken)
 	t.Assert().Equal(1, storedToken.CifNo)
+	t.Assert().Equal(testClientID, storedToken.ClientID)
 	t.Assert().True(storedToken.ExpiresAt.After(time.Now()))
 }
 
@@ -141,6 +143,9 @@ func (t *AccountInfoTestSuite) cleanupDatabase() error {
 	if err := t.DB.Exec("DELETE FROM tokens").Error; err != nil {
 		return err
 	}
+	if err := t.DB.Exec("DELETE FROM clients").Error; err != nil {
+		return err
+	}
 	if err := t.DB.Exec("DELETE FROM accounts").Error; err != nil {
 		return err
 	}
@@ -150,9 +155,31 @@ func (t *AccountInfoTestSuite) cleanupDatabase() error {
 	return nil
 }
 
+const (
+	testClientID     = "client-1"
+	testClientSecret = "secret-1"
+)
+
+func (t *AccountInfoTestSuite) basicAuthEditor() func(ctx context.Context, req *http.Request) error {
+	return func(ctx context.Context, req *http.Request) error {
+		credentials := base64.StdEncoding.EncodeToString([]byte(testClientID + ":" + testClientSecret))
+		req.Header.Set("Authorization", "Basic "+credentials)
+		return nil
+	}
+}
+
 func (t *AccountInfoTestSuite) seedDatabase() error {
 	if t.DB == nil {
 		return nil
+	}
+
+	if err := t.DB.Create(&entity.Client{
+		ClientID:     testClientID,
+		ClientSecret: pkg.HashString(testClientSecret),
+		ClientName:   "Test Client",
+		Scope:        "read:account_and_transactions",
+	}).Error; err != nil {
+		return err
 	}
 
 	if err := t.DB.Create(&entity.Customer{
@@ -191,6 +218,7 @@ func (t *AccountInfoTestSuite) seedDatabase() error {
 		Scopes:       "read:account_and_transactions",
 		ExpiresAt:    time.Now().Add(1 * time.Hour),
 		CifNo:        1,
+		ClientID:     testClientID,
 	}).Error; err != nil {
 		return err
 	}
