@@ -32,13 +32,23 @@ CREATE TABLE accounts (
     CONSTRAINT fk_accounts_customers FOREIGN KEY (cif_no) REFERENCES customers(cif_no)
 );
 
+CREATE TABLE clients (
+    client_id VARCHAR(255) PRIMARY KEY,
+    client_secret VARCHAR(255) NOT NULL,
+    client_name VARCHAR(255) NOT NULL,
+    scope TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE tokens (
     access_token VARCHAR(255) PRIMARY KEY,
     refresh_token VARCHAR(255) NOT NULL,
     scopes TEXT NOT NULL,
     expires_at TIMESTAMP NOT NULL,
+    client_id VARCHAR(255) NOT NULL,
     cif_no INT NOT NULL,
     UNIQUE KEY uk_tokens_refresh_token (refresh_token),
+    CONSTRAINT fk_tokens_clients FOREIGN KEY (client_id) REFERENCES clients(client_id),
     CONSTRAINT fk_tokens_customers FOREIGN KEY (cif_no) REFERENCES customers(cif_no)
 );
 
