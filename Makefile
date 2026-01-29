@@ -19,8 +19,7 @@ mysql-cli: ## Connect to mysql cli
 	pushd ./build/docker && COMPOSE_FILE= docker-compose -f docker-compose.yaml run mysql-cli && popd
 
 run: ## Run app
-	export APP_ENV=development
-	go run ./cmd/server/main.go
+	APP_ENV=development go run ./cmd/server/main.go
 
 docker-build: ## Build image
 	docker build --tag $(IMAGE_TAG) -f ./build/docker/Dockerfile .
