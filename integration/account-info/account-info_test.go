@@ -173,9 +173,14 @@ func (t *AccountInfoTestSuite) seedDatabase() error {
 		return nil
 	}
 
+	secretHash, err := pkg.HashString(testClientSecret)
+	if err != nil {
+		return err
+	}
+
 	if err := t.DB.Create(&entity.Client{
 		ClientID:     testClientID,
-		ClientSecret: pkg.HashString(testClientSecret),
+		ClientSecret: secretHash,
 		ClientName:   "Test Client",
 		Scope:        "read:account_and_transactions",
 	}).Error; err != nil {

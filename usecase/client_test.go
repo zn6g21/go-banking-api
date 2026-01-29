@@ -41,9 +41,12 @@ func (suite *ClientUsecaseSuite) TestAuthenticateSuccess() {
 	mockClientRepository := NewMockClientRepository()
 	suite.clientUsecase = NewClientUsecase(mockClientRepository)
 
+	secretHash, err := pkg.HashString("secret-1")
+	suite.Require().NoError(err)
+
 	mockClientRepository.On("Get", "client-1").Return(&entity.Client{
 		ClientID:     "client-1",
-		ClientSecret: pkg.HashString("secret-1"),
+		ClientSecret: secretHash,
 		ClientName:   "Test Client",
 		Scope:        "read:account_and_transactions",
 	}, nil)
@@ -86,9 +89,12 @@ func (suite *ClientUsecaseSuite) TestAuthenticateInvalidSecret() {
 	mockClientRepository := NewMockClientRepository()
 	suite.clientUsecase = NewClientUsecase(mockClientRepository)
 
+	secretHash, err := pkg.HashString("secret-1")
+	suite.Require().NoError(err)
+
 	mockClientRepository.On("Get", "client-1").Return(&entity.Client{
 		ClientID:     "client-1",
-		ClientSecret: pkg.HashString("secret-1"),
+		ClientSecret: secretHash,
 		ClientName:   "Test Client",
 		Scope:        "read:account_and_transactions",
 	}, nil)

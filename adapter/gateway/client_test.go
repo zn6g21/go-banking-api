@@ -10,6 +10,7 @@ import (
 
 	"go-banking-api/adapter/gateway"
 	"go-banking-api/entity"
+	"go-banking-api/pkg"
 	"go-banking-api/pkg/tester"
 )
 
@@ -38,9 +39,12 @@ func (suite *ClientRepositoryTestSuite) AfterTest(suiteName, testName string) {
 }
 
 func (suite *ClientRepositoryTestSuite) TestClientRepositoryGet() {
+	secretHash, err := pkg.HashString("secret-1")
+	suite.Require().NoError(err)
+
 	paramClient := entity.Client{
 		ClientID:     "client-1",
-		ClientSecret: "secret-1",
+		ClientSecret: secretHash,
 		ClientName:   "Test Client",
 		Scope:        "read:account_and_transactions",
 	}

@@ -1,17 +1,19 @@
 package pkg
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func HashString(value string) string {
-	hash := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(hash[:])
+const bcryptCost = bcrypt.DefaultCost
+
+func HashString(value string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(value), bcryptCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
 }
 
 func CompareHash(hash string, value string) bool {
-	hashed := HashString(value)
-	return subtle.ConstantTimeCompare([]byte(hash), []byte(hashed)) == 1
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(value)) == nil
 }
