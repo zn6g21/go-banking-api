@@ -13,16 +13,20 @@ import (
 func TestToken(t *testing.T) {
 	now := time.Now()
 	token := entity.Token{
-		AccessToken: "test-token",
-		Scopes:      "read:account_and_transactions write:transfer",
-		ExpiresAt:   now,
-		CifNo:       1,
+		AccessToken:  "test-token",
+		RefreshToken: "refresh-token-1",
+		Scopes:       "read:account_and_transactions write:transfer",
+		ExpiresAt:    now,
+		CifNo:        1,
+		ClientID:     "client-1",
 	}
 
 	assert.Equal(t, "test-token", token.AccessToken)
+	assert.Equal(t, "refresh-token-1", token.RefreshToken)
 	assert.Equal(t, "read:account_and_transactions write:transfer", token.Scopes)
 	assert.Equal(t, now, token.ExpiresAt)
 	assert.Equal(t, 1, token.CifNo)
+	assert.Equal(t, "client-1", token.ClientID)
 }
 
 func TestIsExpired(t *testing.T) {

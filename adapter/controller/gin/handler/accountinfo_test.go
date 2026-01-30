@@ -34,22 +34,6 @@ func (m *MockAccountInfoUsecase) Get(cifNo int) (*usecase.AccountInfo, error) {
 	return args.Get(0).(*usecase.AccountInfo), args.Error(1)
 }
 
-type MockTokenUsecase struct {
-	mock.Mock
-}
-
-func NewMockTokenUsecase() *MockTokenUsecase {
-	return &MockTokenUsecase{}
-}
-
-func (m *MockTokenUsecase) Validate(accessTokenFromHeader string, requiredScope string) (*entity.Token, error) {
-	args := m.Called(accessTokenFromHeader, requiredScope)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*entity.Token), args.Error(1)
-}
-
 type AccountInfoHandlerSuite struct {
 	suite.Suite
 	accountInfoHandler *AccountInfoHandler

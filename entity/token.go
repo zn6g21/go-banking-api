@@ -7,10 +7,12 @@ import (
 )
 
 type Token struct {
-	AccessToken string
-	Scopes      string // "read:account_and_transactions write:transfer" のようなスペース区切り
-	ExpiresAt   time.Time
-	CifNo       int
+	AccessToken  string
+	RefreshToken string
+	Scopes       string // "read:account_and_transactions write:transfer" のようなスペース区切り
+	ExpiresAt    time.Time
+	CifNo        int
+	ClientID     string
 }
 
 func (t *Token) IsExpired(clock pkg.Clock) bool {

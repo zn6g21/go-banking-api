@@ -2,7 +2,9 @@ package integration
 
 import (
 	"context"
+	"encoding/base64"
 	"go-banking-api/adapter/controller/gin/presenter"
+	"go-banking-api/api"
 	"go-banking-api/entity"
 	"go-banking-api/infrastructure/database"
 	"go-banking-api/pkg"
@@ -51,8 +53,16 @@ func (t *AccountInfoTestSuite) TearDownSuite() {
 
 func (t *AccountInfoTestSuite) TestGetAccountInfo() {
 	baseEndpoint := pkg.GetEndpoint("api/v1")
-	apiClient, _ := presenter.NewClientWithResponses(baseEndpoint)
-	const accessToken = "test-access-token"
+	apiClient, err := presenter.NewClientWithResponses(baseEndpoint)
+	t.Require().NoError(err)
+
+	refreshToken := t.getRefreshToken()
+	tokenResponse, err := apiClient.PostTokenWithResponse(context.Background(), presenter.TokenRequest{
+		RefreshToken: refreshToken,
+	}, t.basicAuthEditor())
+	t.Require().NoError(err)
+	t.Require().NotNil(tokenResponse.JSON200)
+	accessToken := tokenResponse.JSON200.Data.AccessToken
 
 	authEditor := func(ctx context.Context, req *http.Request) error {
 		req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -72,6 +82,42 @@ func (t *AccountInfoTestSuite) TestGetAccountInfo() {
 	t.Assert().Equal("Tanaka Taro", getResponse.JSON200.Data.NameKana)
 	t.Assert().Equal("田中 太郎", getResponse.JSON200.Data.NameKanji)
 
+}
+
+func (t *AccountInfoTestSuite) TestPostToken() {
+	baseEndpoint := pkg.GetEndpoint("api/v1")
+	apiClient, err := presenter.NewClientWithResponses(baseEndpoint)
+	t.Require().NoError(err)
+
+	refreshToken := t.getRefreshToken()
+	response, err := apiClient.PostTokenWithResponse(context.Background(), presenter.TokenRequest{
+		RefreshToken: refreshToken,
+	}, t.basicAuthEditor())
+	t.Require().NoError(err)
+	t.Require().NotNil(response.JSON200)
+	t.Assert().Equal(http.StatusOK, response.StatusCode())
+	t.Assert().Equal(api.Version, response.JSON200.ApiVersion)
+	t.Assert().Equal("Bearer", response.JSON200.Data.TokenType)
+	t.Assert().NotEmpty(response.JSON200.Data.AccessToken)
+	t.Assert().NotEmpty(response.JSON200.Data.RefreshToken)
+	t.Assert().NotEqual("test-refresh-token", response.JSON200.Data.RefreshToken)
+	t.Assert().Greater(response.JSON200.Data.ExpiresIn, 0)
+	t.Assert().LessOrEqual(response.JSON200.Data.ExpiresIn, 3600)
+
+	var storedToken entity.Token
+	err = t.DB.Where("access_token = ?", response.JSON200.Data.AccessToken).Take(&storedToken).Error
+	t.Require().NoError(err)
+	t.Assert().Equal(response.JSON200.Data.RefreshToken, storedToken.RefreshToken)
+	t.Assert().Equal(1, storedToken.CifNo)
+	t.Assert().Equal(testClientID, storedToken.ClientID)
+	t.Assert().True(storedToken.ExpiresAt.After(time.Now()))
+}
+
+func (t *AccountInfoTestSuite) getRefreshToken() string {
+	var token entity.Token
+	err := t.DB.Select("refresh_token").Where("cif_no = ?", 1).Take(&token).Error
+	t.Require().NoError(err)
+	return token.RefreshToken
 }
 
 func (t *AccountInfoTestSuite) waitForHealth(timeout time.Duration) error {
@@ -97,6 +143,9 @@ func (t *AccountInfoTestSuite) cleanupDatabase() error {
 	if err := t.DB.Exec("DELETE FROM tokens").Error; err != nil {
 		return err
 	}
+	if err := t.DB.Exec("DELETE FROM clients").Error; err != nil {
+		return err
+	}
 	if err := t.DB.Exec("DELETE FROM accounts").Error; err != nil {
 		return err
 	}
@@ -106,9 +155,36 @@ func (t *AccountInfoTestSuite) cleanupDatabase() error {
 	return nil
 }
 
+const (
+	testClientID     = "client-1"
+	testClientSecret = "secret-1"
+)
+
+func (t *AccountInfoTestSuite) basicAuthEditor() func(ctx context.Context, req *http.Request) error {
+	return func(ctx context.Context, req *http.Request) error {
+		credentials := base64.StdEncoding.EncodeToString([]byte(testClientID + ":" + testClientSecret))
+		req.Header.Set("Authorization", "Basic "+credentials)
+		return nil
+	}
+}
+
 func (t *AccountInfoTestSuite) seedDatabase() error {
 	if t.DB == nil {
 		return nil
+	}
+
+	secretHash, err := pkg.HashString(testClientSecret)
+	if err != nil {
+		return err
+	}
+
+	if err := t.DB.Create(&entity.Client{
+		ClientID:     testClientID,
+		ClientSecret: secretHash,
+		ClientName:   "Test Client",
+		Scope:        "read:account_and_transactions",
+	}).Error; err != nil {
+		return err
 	}
 
 	if err := t.DB.Create(&entity.Customer{
@@ -142,10 +218,12 @@ func (t *AccountInfoTestSuite) seedDatabase() error {
 	}
 
 	if err := t.DB.Create(&entity.Token{
-		AccessToken: "test-access-token",
-		Scopes:      "read:account_and_transactions",
-		ExpiresAt:   time.Now().Add(1 * time.Hour),
-		CifNo:       1,
+		AccessToken:  "test-access-token",
+		RefreshToken: "test-refresh-token",
+		Scopes:       "read:account_and_transactions",
+		ExpiresAt:    time.Now().Add(1 * time.Hour),
+		CifNo:        1,
+		ClientID:     testClientID,
 	}).Error; err != nil {
 		return err
 	}

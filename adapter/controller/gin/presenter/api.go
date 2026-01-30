@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	BasicAuthScopes  = "basicAuth.Scopes"
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
@@ -61,6 +62,19 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// TokenData defines model for TokenData.
+type TokenData struct {
+	AccessToken  string `json:"accessToken"`
+	ExpiresIn    int    `json:"expiresIn"`
+	RefreshToken string `json:"refreshToken"`
+	TokenType    string `json:"tokenType"`
+}
+
+// TokenRequest defines model for TokenRequest.
+type TokenRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
 // Transaction defines model for Transaction.
 type Transaction struct {
 	Amount             string `json:"amount"`
@@ -88,11 +102,20 @@ type ErrorResponse struct {
 	Error Error `json:"error"`
 }
 
+// TokenResponse defines model for TokenResponse.
+type TokenResponse struct {
+	ApiVersion ApiVersion `json:"apiVersion"`
+	Data       TokenData  `json:"data"`
+}
+
 // TransactionListResponse defines model for TransactionListResponse.
 type TransactionListResponse struct {
 	ApiVersion ApiVersion      `json:"apiVersion"`
 	Data       TransactionList `json:"data"`
 }
+
+// PostTokenJSONRequestBody defines body for PostToken for application/json ContentType.
+type PostTokenJSONRequestBody = TokenRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -170,12 +193,41 @@ type ClientInterface interface {
 	// GetAccountInformation request
 	GetAccountInformation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostTokenWithBody request with any body
+	PostTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostToken(ctx context.Context, body PostTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetTransactionList request
 	GetTransactionList(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetAccountInformation(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAccountInformationRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostToken(ctx context.Context, body PostTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostTokenRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +273,46 @@ func NewGetAccountInformationRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPostTokenRequest calls the generic PostToken builder with application/json body
+func NewPostTokenRequest(server string, body PostTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostTokenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostTokenRequestWithBody generates requests for PostToken with any type of body
+func NewPostTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/token")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -298,6 +390,11 @@ type ClientWithResponsesInterface interface {
 	// GetAccountInformationWithResponse request
 	GetAccountInformationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAccountInformationResponse, error)
 
+	// PostTokenWithBodyWithResponse request with any body
+	PostTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostTokenResponse, error)
+
+	PostTokenWithResponse(ctx context.Context, body PostTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PostTokenResponse, error)
+
 	// GetTransactionListWithResponse request
 	GetTransactionListWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTransactionListResponse, error)
 }
@@ -320,6 +417,31 @@ func (r GetAccountInformationResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAccountInformationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TokenResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostTokenResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -357,6 +479,23 @@ func (c *ClientWithResponses) GetAccountInformationWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseGetAccountInformationResponse(rsp)
+}
+
+// PostTokenWithBodyWithResponse request with arbitrary body returning *PostTokenResponse
+func (c *ClientWithResponses) PostTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostTokenResponse, error) {
+	rsp, err := c.PostTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostTokenResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostTokenWithResponse(ctx context.Context, body PostTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PostTokenResponse, error) {
+	rsp, err := c.PostToken(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostTokenResponse(rsp)
 }
 
 // GetTransactionListWithResponse request returning *GetTransactionListResponse
@@ -408,6 +547,53 @@ func ParseGetAccountInformationResponse(rsp *http.Response) (*GetAccountInformat
 	return response, nil
 }
 
+// ParsePostTokenResponse parses an HTTP response from a PostTokenWithResponse call
+func ParsePostTokenResponse(rsp *http.Response) (*PostTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TokenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetTransactionListResponse parses an HTTP response from a GetTransactionListWithResponse call
 func ParseGetTransactionListResponse(rsp *http.Response) (*GetTransactionListResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -453,6 +639,9 @@ type ServerInterface interface {
 	// Lookup account information
 	// (GET /accounts)
 	GetAccountInformation(c *gin.Context)
+	// Refresh access token
+	// (POST /token)
+	PostToken(c *gin.Context)
 	// Lookup transaction list
 	// (GET /transactions)
 	GetTransactionList(c *gin.Context)
@@ -480,6 +669,21 @@ func (siw *ServerInterfaceWrapper) GetAccountInformation(c *gin.Context) {
 	}
 
 	siw.Handler.GetAccountInformation(c)
+}
+
+// PostToken operation middleware
+func (siw *ServerInterfaceWrapper) PostToken(c *gin.Context) {
+
+	c.Set(BasicAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PostToken(c)
 }
 
 // GetTransactionList operation middleware
@@ -525,26 +729,29 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/accounts", wrapper.GetAccountInformation)
+	router.POST(options.BaseURL+"/token", wrapper.PostToken)
 	router.GET(options.BaseURL+"/transactions", wrapper.GetTransactionList)
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8xWTW/jNhD9K8a0R8KSk6BJdXPaoAgaJEU32EvgA02NbSYSySUpA95A/31BUrIpWf7I",
-	"YoFd+GJx3szwvfmQ3oHJUkmBwhrI3kGjUVIY9A9TxmQl7P/NmTtiUlgU1v2lShWcUculSF6NFO7MsBWW",
-	"1P1TWirUlodIVPHPqA0PqN81LiCD35Jd7iR4mmS6Q9YE5tTg39TiKa/bFlcTyKmlJ7MEZlDXBDR+qbjG",
-	"HLKX+J5R8ibmjIDdKIQM5PwVmfN26dAwzZX13ICGwKNWR3ehO62l/gEiootziplPtscruJ5DwCM713/W",
-	"VBjKnP2Bm5/ZDedUtnfb4xU+u6x2F3VUcBPXtyYNz3hkBjgHw2NVztEXsclprOZi6dg1iGd/PmCf04IK",
-	"dsgm3v6SuTfmuKBVYSGDP2+u/wAygNZUsFWL3zOzSmsUbDNoFLTEf6mgx4yvfNBqLLVV6GRRlb4YzPK1",
-	"my9WSIM5EFho+RV9aaQuqbBRddpAvYJGU7pVoUNxm7grMemVJOK90zriG7PbbxkC005T74qwngyV4DZa",
-	"bAtH1UHzQGMPfNcOfrelWLeAXFhconYOJRpDl0PV7YnXAkkINsQrGqiBri7bbv9Qu3aGa8AejdujPIV4",
-	"0jnq07ADc9UTpJt5MM9+VNLqEDdOzPGErn5R7WkbZfHP3GJpPrD+PP+QlWpNN8e4mqEtSMAgqzS3m08u",
-	"erjVHKlGPa3sarvhnVM43jXvyloVFikXi1Abbgtn+edpNP3vfvSMpSpCv6/bsYHJOB2n7t5SoaCKQwaX",
-	"43R8CQQUtSt/gaQZW/+wRC+ck82/eu5zlwFts4bvRZitsO073zYXaXpIyy0u6X8A1QSuzvHrvvG919WH",
-	"vSL9IXvpKv8yq2cETFWWVG8ggwcp3yo1ar8+eIe3pUsTtm0j3MzFTvr9dUjLfqN+j5CHviF+dUH77/1I",
-	"ze701CG6dr3sg1e6aMYgS5J07H/ZTXqTJlTxZD2BmvRAhWS0WEljj8MmF9c+2qQLm9XfAgAA///E7Xa6",
-	"ywsAAA==",
+	"H4sIAAAAAAAC/8xW0W7bNhT9FYPbI2HJTddmenPWYghWtEUW7CXwA01d20wkkiWpYF6gfx9IShEpU1GS",
+	"FVjhF4s8vJfnXPLwPiAqaik4cKNR8YAUaCm4BvexplQ03Fx1Y3aICm6AG/uXSFkxSgwTPLvVgtsxTQ9Q",
+	"E/tPKiFBGeYjEcn+AqWZR/2sYIcK9FM25M78Sp2tB2SL0ZZo+EAMzK266HEtRiUxZDaLZ4baFiMF3xqm",
+	"oETFTbjPIHkXc4OROUpABRLbW6B2tU0HmiomjeOGiA+86HW0G/qolFDfQUSwceaYuWQnvPzS5xBwyGj7",
+	"1+IO+P94Bp5TT7fHDxb4ZEWfXUZj48UqKMI1oXb+E9PmR9cj3u33UmWIuqiYDk95izueoXEkOPuJz029",
+	"BXeUu5zaKMb3ll2HuHbjifktqQinU3P87jdRuskSdqSpDCrQr+fv3yGcQCvC6aHHn0zTRing9Jic5KSG",
+	"PwgnT03esuSsNsQ0/j7zpnbFoIbdW5ehldBQIox2SvwDrjRC1YSboDp9oFFBH6lHvB6zxbriUR0CsoPA",
+	"AcmQ0uk5wWgdneRB+ftVSveLwNN3lp+Flt5nT8Afe8+LzxGNq8a4gT0ou6AGrck+VdKRYj0Q+2ApXoOr",
+	"pA4yaO0AySrD35Ip0JexImfv8hwPpPtt4wQPBTsF+jCdwVlUf00GzS+AqDDkBPtw/6NkYeiQyKRCV/Ct",
+	"AZ247TMcRluK0Mlkg/0kClL3jvMiy4gMLqXykPOzmEN8USWoediEt43kiDMn85xGxb0O4T0OOc7o6h6L",
+	"E22DLO6bGaj1C54gx99nJUqR41NcdeolwkgDbRQzxz9tdL+rLdGMrhtzeHxk7Ro3Ohz/gzHSnQF3LU7R",
+	"o9vi4TYh4ztfSGYqO/P7l8X66+XiGmpZea+67y0PrZb5MrdZhAROJEMFOlvmyzOEkSTm4HabdZbrPvbg",
+	"VLYau17hsrQZwHTv5iX3FuGf56glf5PnU8I/4rJx395i9PY56+JG1a16++JVQbFQcfMQKX+zaTcY6aau",
+	"iTqiAn0S4q6Ri75pZhFvQ/a6syov3MbGzkzvJlLohIpfhTaDrTljuhDl8UV92myn2TteGx9koxpoX1Ow",
+	"uMX+D+VavWLVL6/IdVLk4S6Oa3zlbX3hX5yF6d+Yrrr+uyvtyGemrsnYsF4l+UQ//6PflXEPHkoZuWjr",
+	"oytrUy54o6rO4Yosy5fuV5zn53lGJMvuV6jFI1AlKKkOQpunYas37120VQzbtP8GAAD//xQW/T1dEAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

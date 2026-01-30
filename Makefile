@@ -19,8 +19,7 @@ mysql-cli: ## Connect to mysql cli
 	pushd ./build/docker && COMPOSE_FILE= docker-compose -f docker-compose.yaml run mysql-cli && popd
 
 run: ## Run app
-	export APP_ENV=development
-	go run ./cmd/server/main.go
+	APP_ENV=development go run ./cmd/server/main.go
 
 docker-build: ## Build image
 	docker build --tag $(IMAGE_TAG) -f ./build/docker/Dockerfile .
@@ -63,6 +62,9 @@ goimports: ## Run goimports to show the diff
 	goimports -d .
 
 prettier: vet gofmt goimports lint ## Show the code that needs to be modified
+
+vulncheck: ## Run vulncheck to show the diff
+	govulncheck ./...
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $1, $2}'

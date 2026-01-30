@@ -1,7 +1,10 @@
 package usecase
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
+	"time"
 
 	"go-banking-api/adapter/gateway"
 	"go-banking-api/entity"
@@ -12,12 +15,20 @@ import (
 
 type TokenUsecase interface {
 	Validate(accessTokenFromHeader string, requiredScope string) (*entity.Token, error)
+	Refresh(refreshToken string, clientID string) (*entity.Token, error)
 }
 
 type tokenUsecase struct {
 	tokenRepository gateway.TokenRepository
 	clock           pkg.Clock
 }
+
+const accessTokenTTL = time.Hour
+
+var (
+	ErrRefreshTokenRequired = errors.New("refresh token is required")
+	ErrInvalidRefreshToken  = errors.New("invalid refresh token")
+)
 
 func NewTokenUsecase(tokenRepository gateway.TokenRepository, clock pkg.Clock) *tokenUsecase {
 	if clock == nil {
@@ -48,4 +59,56 @@ func (t *tokenUsecase) Validate(accessTokenFromHeader string, requiredScope stri
 	}
 
 	return storedToken, nil
+}
+
+func (t *tokenUsecase) Refresh(refreshToken string, clientID string) (*entity.Token, error) {
+	if refreshToken == "" {
+		return nil, ErrRefreshTokenRequired
+	}
+	if clientID == "" {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	storedToken, err := t.tokenRepository.GetByRefreshToken(refreshToken)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidRefreshToken
+		}
+		return nil, err
+	}
+	if storedToken.ClientID != clientID {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	accessToken, err := generateToken()
+	if err != nil {
+		return nil, err
+	}
+	newRefreshToken, err := generateToken()
+	if err != nil {
+		return nil, err
+	}
+
+	expiresAt := t.clock.Now().Add(accessTokenTTL)
+	if err := t.tokenRepository.UpdateByRefreshToken(refreshToken, accessToken, newRefreshToken, expiresAt); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidRefreshToken
+		}
+		return nil, err
+	}
+
+	return &entity.Token{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ClientID:     clientID,
+		ExpiresAt:    expiresAt,
+	}, nil
+}
+
+func generateToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
