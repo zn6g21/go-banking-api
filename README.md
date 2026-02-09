@@ -26,8 +26,10 @@ Goで実装した銀行オープンAPI。OpenAPI 3.0 を起点に、アクセス
 - Docker Compose で API + MySQL + Swagger UI を一括起動
 
 ## アーキテクチャ
-- entity / usecase / adapter / infrastructure に分割して責務を整理
-    - 現職で担当するシステムは密結合のために変更影響が広く課題感を持っているため、影響範囲を局所化しやすいクリーンアーキテクチャを採用しました。
+- アーキテクチャ 銀行システムに求められる長期的な保守性を担保するため、クリーンアーキテクチャを採用しました。
+  - 責務の分離: Entity / Usecase / Adapter / Infrastructure に分割し、依存関係を整理。
+  - ドメイン中心: 重要なビジネスロジックを中心に置き、フレームワークやDBなどの外部要因に依存させない設計。
+  - 影響の局所化: 入出力や永続化の詳細は Adapter 層で吸収し、修正時の影響範囲を最小限に抑えています。
 
 ## API
 Base URL: `http://localhost:8080/api/v1`
